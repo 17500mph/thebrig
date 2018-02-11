@@ -1,5 +1,38 @@
 #!/bin/sh
 
+#
+# File name:	thebrig_install.sh
+# Author:      	Matt Kempe, Alexey Kruglov
+# Modified:		Feb 2015
+# 
+# Purpose: 		This script is used to intall/update the extension used by
+# 				Nas4Free's lighttpd webgui server. It checks the environment,
+#				then downloads the latest copy of the software from GitHub,
+#				extracts it to a staging directory, checks the upgrade
+#				path/status, installs the new software and creates the 
+#				appropriate symlinks.
+#  
+# Variables used:
+# 
+# STAT			a string containing the process info about this script's
+# 				invocation
+# FULL_PATH		a string of the full path of this script, as invoked
+# START_FOLDER	a string with the full path of the folder this script 
+#				was invoked from
+# BRIG_ROOT		a string of the desired install location for thebrig
+# STAGE_BIN_PATH	a string of the "bin" directory in the stage directory
+# CHANGE_VER_FILE 	a string with the file name of the upgrade detection
+#					script
+# FILE_ACT		a string with the filename where CHANGE_VER_FILE saves
+#				its detection results
+# ACTION		an integer that indicates if this is an initial install (0),
+#				an upgrade (1) or a re-installation (2)
+# ACTION_MSG	a string with useful info for the user about our methods
+# THEBRIG_START_FILE	a string with the file name of the auto-start
+#						initialization script
+# CURRENTDATE	a string containing the date/time string right.... NOW!
+
+
 # define our bail out shortcut function anytime there is an error - display the error message, then exit
 # returning 1.
 exerr () { echo -e "$*" >&2 ; exit 1; }
@@ -11,9 +44,25 @@ STAT=$(procstat -f $$ | grep -E "/"$(basename $0)"$")
 FULL_PATH=$(echo $STAT | sed -r s/'^([^\/]+)\/'/'\/'/1 2>/dev/null)
 START_FOLDER=$(dirname $FULL_PATH | sed 's|/thebrig_install.sh||')
 
-# Store the script's current location in a file
-echo $START_FOLDER > /tmp/thebriginstaller
+# First stop any users older than 9.3 from installing
+MAJ_REL=$(uname -r | cut -d- -f1 | cut -d. -f1)
+MIN_REL=$(uname -r | cut -d- -f1 | cut -d. -f2)
 
+# Prevent users from breaking their system
+if [ $MAJ_REL -lt 10  ]; then
+		if [ $MAJ_REL -lt 9 -o $MAJ_REL -eq 9 -a $MIN_REL -lt 3 ]; then
+			echo "ERROR: This version of TheBrig is incompatible with your system!"
+			exerr "ERROR: Please upgrade Nas4Free to version 9.3 or higher!"
+		else
+			BRANCHNAME="alexey"
+		fi
+	else
+	BRANCHNAME="alcatraz"
+fi
+
+# Store the script's current location in a file
+
+#Store user's inputs
 # This first checks to see that the user has supplied an argument
 if [ ! -z $1 ]; then
     # The first argument will be the path that the user wants to be the root folder.
@@ -26,86 +75,67 @@ if [ ! -z $1 ]; then
         echo "Attempting to create a new destination directory....."
         mkdir -p $BRIG_ROOT || exerr "ERROR: Could not create directory!"
     fi
-	mkdir -p temporary || exerr "ERROR: Could not create install directory!"
-	cd temporary || exerr "ERROR: Could not access install directory!"
-#    cd $BRIG_ROOT || exerr "ERROR: Could not access install directory!"
 else
 # We are here because the user did not specify an alternate location. Thus, we should use the 
 # current directory as the root.
     BRIG_ROOT=$START_FOLDER
 fi
-# touch /tmp/thebrig.tmp
 
-if [ $2 -eq 2 ]; then 
-    # Fetch the testing branch as a zip file
-    echo "Retrieving the testing branch as a zip file"
-    fetch https://github.com/fsbruva/thebrig/archive/working.zip || exerr "ERROR: Could not write to install directory!"
-    mv working.zip master.zip
-elif [ $2 -eq 3 ]; then
-	echo "Retrieving the alexey's branch as a zip file"
-	fetch https://github.com/fsbruva/thebrig/archive/alexey.zip || exerr "ERROR: Could not write to install directory!"
-	mv alexey.zip master.zip
-else
-    # Fetch the master branch as a zip file
-    echo "Retrieving the most recent version of TheBrig"
-    fetch https://github.com/fsbruva/thebrig/archive/master.zip || exerr "ERROR: Could not write to install directory!"
-fi
+# Make and move into the install staging folder
+mkdir -p $START_FOLDER/install_stage || exerr "ERROR: Could not create staging directory!"
+cd $START_FOLDER/install_stage || exerr "ERROR: Could not access staging directory!"
+STAGE_BIN_PATH=$START_FOLDER/install_stage/conf/bin
 
+echo "Retrieving the alcatraz branch as a zip file"
+fetch https://github.com/fsbruva/thebrig/archive/${BRANCHNAME}.zip || exerr "ERROR: Could not write to install directory!"
 
 # Extract the files we want, stripping the leading directory, and exclude
 # the git nonsense
 echo "Unpacking the tarball..."
-tar -xvf master.zip --exclude='.git*' --strip-components 1
-rm master.zip
+tar -xf ${BRANCHNAME}.zip --exclude='.git*' --strip-components 1
+echo "Done!"
+rm ${BRANCHNAME}.zip
 
-# Run the change_ver script to deal with different versions of TheBrig
-/usr/local/bin/php-cgi -f conf/bin/change_ver.php
+echo "Detecting current configuration..."
+. /etc/rc.subr
+. /etc/configxml.subr
+. /etc/util.subr
 
-filever="/tmp/thebrigversion"
-# The file /tmp/thebrigversion might get created by the change_ver script
-# Its existence implies that we need to carry out the install procedure
-if [ -f "$filever" ]
-then
-	action=`cat ${filever}` 
-	# echo "Thebrig "${action}
-		if [ `uname -p` = "amd64" ]; then
-			echo "Renaming 64 bit ftp binary"
-			mv conf/bin/ftp_amd64 conf/bin/ftp
-			rm conf/bin/ftp_i386
-		else
-			echo "Renaming 32 bit ftp binary"
-			mv conf/bin/ftp_i386 conf/bin/ftp
-			rm conf/bin/ftp_amd64
-		fi
-	cp -r * $BRIG_ROOT/
-	mkdir -p /usr/local/www/ext/thebrig
-	cp $BRIG_ROOT/conf/ext/thebrig/* /usr/local/www/ext/thebrig
+echo "Detecting current configuration..."
+. /etc/rc.subr
+. /etc/configxml.subr
+. /etc/util.subr
+
+INSTALLED=`configxml_get //thebrig/rootfolder`
+if [ ! -z ${INSTALLED} ]; then
+	echo "Look like update thebrig"
+	BRIG_ROOT=${INSTALLED}
+	cp -f -R $START_FOLDER/install_stage/* $BRIG_ROOT/
+	echo "Congratulations! You have fresh TheBrig version."
+else
+	echo "Look like fresh install"
+	cp -f -R $START_FOLDER/install_stage/* $BRIG_ROOT/
+	# Create the symlinks/schema. We can't use thebrig_start since
+	# there is nothing for the brig in the config XML
+	mkdir -p /usr/local/www/ext
+	ln -s $BRIG_ROOT/conf/ext/thebrig /usr/local/www/ext/thebrig
 	cd /usr/local/www
 	# For each of the php files in the extensions folder
-	for file in /usr/local/www/ext/thebrig/*.php
-	do
-	# Check if the link is already there
-		if [ -e "${file##*/}" ]; then
-			rm "${file##*/}"
-		fi
+	for file in $BRIG_ROOT/conf/ext/thebrig/*.php
+		do
 			# Create link
-		ln -s "$file" "${file##*/}"
+			ln -s "$file" "${file##*/}"
 		done
+	# Store the install destination into the /tmp/thebrig.tmp
 	echo $BRIG_ROOT > /tmp/thebrig.tmp
-	echo "Congratulations! Thebrig ${action} . Navigate to rudimentary config tab and push Save "
-else
-# There was not /tmp/thebrigversion, so we are already using the latest version
-	echo "You use fresh version"
+	echo "Congratulations! TheBrig was installed. Navigate to rudimentary config tab and push Save."
+	ACTION_MSG="fresh installed"
 fi
-# Clean after work
+# Get rid of staged updates & cleanup
 cd $START_FOLDER
-# Get rid of staged updates
-rm -Rf temporary/*
-rmdir temporary
-rm /tmp/thebriginstaller
-if [ -f "$file" ] 
-then 
-	rm /tmp/thebrigversion
-fi
-currentdate=`date -j +"%Y-%m-%d %H:%M:%S"`
-echo "[$currentdate]: TheBrig installer!: installer: ${action} successfully" >> $BRIG_ROOT/thebrig.log
+rm -rf install_stage
+chmod -f -R 755 $BRIG_ROOT/conf/bin
+chmod -f -R 755 $BRIG_ROOT/conf/sbin
+# Log it!
+CURRENTDATE=`date -j +"%Y-%m-%d %H:%M:%S"`
+echo "[$CURRENTDATE]: TheBrig installer!: installer: ${ACTION_MSG} successfully" >> $BRIG_ROOT/thebrig.log
