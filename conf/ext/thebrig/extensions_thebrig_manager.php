@@ -83,7 +83,7 @@ else { // TheBrig has been confirmed
 		if ( $connected ) {
 			fclose($connected);
 			// Go get the lang.inc file
-			mwexec2 ( "fetch {$fetch_args} -o /tmp/lang.inc https://raw.github.com/fsbruva/thebrig/alcatraz/conf/ext/thebrig/lang.inc" , $garbage , $fetch_ret_val ) ;
+			mwexec2 ( "fetch {$fetch_args} -o /tmp/lang.inc https://raw.github.com/17500mph/thebrig/alcatraz/conf/ext/thebrig/lang.inc" , $garbage , $fetch_ret_val ) ;
 			// Needless error checking
 			if ( is_file("/tmp/lang.inc") ) {
 				$gitlangfile = file("/tmp/lang.inc");
@@ -92,7 +92,7 @@ else { // TheBrig has been confirmed
 				// Force the version to be a number for comparisons
 				$git_ver = 0 + substr($git_ver[1],0,4);
 				// Go get the install file and make it executable - only if we can successfully get the files we need.
-				mwexec2 ( "fetch {$fetch_args} -o /tmp/thebrig_install.sh https://raw.github.com/fsbruva/thebrig/alcatraz/thebrig_install.sh" , $garbage , $fetch_ret_val ) ;
+				mwexec2 ( "fetch {$fetch_args} -o /tmp/thebrig_install.sh https://raw.github.com/17500mph/thebrig/alcatraz/thebrig_install.sh" , $garbage , $fetch_ret_val ) ;
 				if ( is_file("/tmp/thebrig_install.sh" ) ) {
 					// Fetch of install.sh succeeded
 					mwexec ("chmod a+x /tmp/thebrig_install.sh");

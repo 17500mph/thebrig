@@ -57,7 +57,7 @@ if [ $MAJ_REL -lt 10  ]; then
 			BRANCHNAME="alexey"
 		fi
 	else
-	BRANCHNAME="alcatraz"
+	BRANCHNAME="1138"
 fi
 
 # Store the script's current location in a file
@@ -86,8 +86,8 @@ mkdir -p $START_FOLDER/install_stage || exerr "ERROR: Could not create staging d
 cd $START_FOLDER/install_stage || exerr "ERROR: Could not access staging directory!"
 STAGE_BIN_PATH=$START_FOLDER/install_stage/conf/bin
 
-echo "Retrieving the alcatraz branch as a zip file"
-fetch https://github.com/fsbruva/thebrig/archive/${BRANCHNAME}.zip || exerr "ERROR: Could not write to install directory!"
+echo "Retrieving the 1138 branch as a zip file"
+fetch https://github.com/17500mph/thebrig/archive/${BRANCHNAME}.zip || exerr "ERROR: Could not write to install directory!"
 
 # Extract the files we want, stripping the leading directory, and exclude
 # the git nonsense
